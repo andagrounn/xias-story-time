@@ -2,23 +2,25 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { deriveBadges, pickPrimary, normalizeStory, loadCatalog } from "../js/catalog.js";
 
-test("deriveBadges returns present media in priority order", () => {
-  assert.deepEqual(deriveBadges({ video: "abc", audio: null, read: "u" }), ["video", "read"]);
-  assert.deepEqual(deriveBadges({ audio: "a", read: "u", video: null }), ["audio", "read"]);
+test("deriveBadges reflects real capabilities (read needs pages, not just a link)", () => {
+  assert.deepEqual(deriveBadges({ video: "abc", read: "u", pages: ["p1"] }), ["video", "read"]);
+  assert.deepEqual(deriveBadges({ read: "u", pages: [] }), []); // link only, no pages
+  assert.deepEqual(deriveBadges({ audio: "a", pages: ["p1"] }), ["audio", "read"]);
   assert.deepEqual(deriveBadges({}), []);
 });
 
-test("pickPrimary picks richest available", () => {
-  assert.equal(pickPrimary({ video: "abc", audio: "a", read: "u" }), "video");
-  assert.equal(pickPrimary({ audio: "a", read: "u" }), "audio");
-  assert.equal(pickPrimary({ read: "u" }), "read");
+test("pickPrimary picks richest playable capability", () => {
+  assert.equal(pickPrimary({ video: "abc", audio: "a", pages: ["p1"] }), "video");
+  assert.equal(pickPrimary({ audio: "a", pages: ["p1"] }), "audio");
+  assert.equal(pickPrimary({ pages: ["p1"] }), "read");
+  assert.equal(pickPrimary({ read: "u", pages: [] }), null); // link only
   assert.equal(pickPrimary({}), null);
 });
 
 test("normalizeStory adds badges and primary", () => {
-  const s = normalizeStory({ id: "x", title: "X", media: { audio: "a", read: "u" } });
-  assert.deepEqual(s.badges, ["audio", "read"]);
-  assert.equal(s.primary, "audio");
+  const s = normalizeStory({ id: "x", title: "X", media: { read: "u", pages: ["p1", "p2"] } });
+  assert.deepEqual(s.badges, ["read"]);
+  assert.equal(s.primary, "read");
 });
 
 test("loadCatalog fetches and normalizes each record", async () => {

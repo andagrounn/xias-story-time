@@ -1,0 +1,77 @@
+export function playerMarkup(story) {
+  const { primary, media } = story;
+  if (primary === "video") {
+    return `<iframe class="stage" src="https://www.youtube-nocookie.com/embed/${media.video}?autoplay=1&rel=0"
+      title="${escapeAttr(story.title)}" allow="autoplay; fullscreen" allowfullscreen frameborder="0"></iframe>`;
+  }
+  if (primary === "audio") {
+    return `<div class="audio-stage">
+      <img class="audio-art" src="${media ? story.cover : ""}" alt="" />
+      <audio controls autoplay src="${media.audio}"></audio>
+    </div>`;
+  }
+  if (primary === "read" && media.pages && media.pages.length) {
+    const pages = media.pages
+      .map((p, i) => `<img class="page${i === 0 ? " on" : ""}" src="${p}" alt="Page ${i + 1}" />`)
+      .join("");
+    return `<div class="reader" data-page="0" data-total="${media.pages.length}">
+      <button class="nav prev" aria-label="Previous page">‹</button>
+      <div class="pages">${pages}</div>
+      <button class="nav next" aria-label="Next page">›</button>
+      <span class="counter">1 / ${media.pages.length}</span>
+    </div>`;
+  }
+  return `<div class="linkout">
+    <p>This story opens on Storyberries.</p>
+    <a class="linkout-btn" href="${media.read}" target="_blank" rel="noopener">Open the book 📖</a>
+  </div>`;
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/"/g, "&quot;");
+}
+
+export function closePlayer() {
+  const overlay = document.getElementById("overlay");
+  overlay.classList.add("hidden");
+  overlay.setAttribute("aria-hidden", "true");
+  overlay.innerHTML = "";
+  document.removeEventListener("keydown", onKey);
+}
+
+function onKey(e) {
+  const reader = document.querySelector("#overlay .reader");
+  if (e.key === "Escape") return closePlayer();
+  if (reader && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+    turnPage(reader, e.key === "ArrowRight" ? 1 : -1);
+  }
+}
+
+function turnPage(reader, dir) {
+  const total = Number(reader.dataset.total);
+  let page = Number(reader.dataset.page);
+  page = Math.min(total - 1, Math.max(0, page + dir));
+  reader.dataset.page = page;
+  reader.querySelectorAll(".page").forEach((p, i) => p.classList.toggle("on", i === page));
+  reader.querySelector(".counter").textContent = `${page + 1} / ${total}`;
+}
+
+export function openPlayer(story) {
+  const overlay = document.getElementById("overlay");
+  overlay.innerHTML = `
+    <button class="overlay-close" aria-label="Close">✕</button>
+    <div class="overlay-body">${playerMarkup(story)}</div>`;
+  overlay.classList.remove("hidden");
+  overlay.setAttribute("aria-hidden", "false");
+
+  overlay.querySelector(".overlay-close").addEventListener("click", closePlayer);
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) closePlayer();
+  });
+  const reader = overlay.querySelector(".reader");
+  if (reader) {
+    reader.querySelector(".next").addEventListener("click", () => turnPage(reader, 1));
+    reader.querySelector(".prev").addEventListener("click", () => turnPage(reader, -1));
+  }
+  document.addEventListener("keydown", onKey);
+}

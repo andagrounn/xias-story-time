@@ -1,11 +1,20 @@
 export const MEDIA_PRIORITY = ["video", "audio", "read"];
 
+// A story "has" a capability when it can actually play it in-app:
+// video → a YouTube id, audio → a narration url, read → page images.
+// media.read is only a fallback link, so it does NOT grant the read badge.
+export function hasMedia(media, type) {
+  if (!media) return false;
+  if (type === "read") return Array.isArray(media.pages) && media.pages.length > 0;
+  return Boolean(media[type]);
+}
+
 export function deriveBadges(media) {
-  return MEDIA_PRIORITY.filter((k) => media && media[k]);
+  return MEDIA_PRIORITY.filter((k) => hasMedia(media, k));
 }
 
 export function pickPrimary(media) {
-  return MEDIA_PRIORITY.find((k) => media && media[k]) ?? null;
+  return MEDIA_PRIORITY.find((k) => hasMedia(media, k)) ?? null;
 }
 
 export function normalizeStory(raw) {
