@@ -1,0 +1,13 @@
+{
+  "name": "xias-story-time",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "scrape": "node scripts/scrape.mjs"
+  },
+  "devDependencies": {
+    "node-html-parser": "^6.1.13"
+  }
+}
