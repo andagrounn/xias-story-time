@@ -30,6 +30,8 @@ body {
 .moon { display: inline-block; }
 
 .chips { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+#age-chips { margin-top: 10px; }
+#age-chips .chip { font-size: 14px; padding: 6px 14px; opacity: 0.95; }
 .chip {
   border: none;
   border-radius: 999px;
@@ -78,7 +80,7 @@ body {
 
 .card-cover {
   width: 100%;
-  aspect-ratio: 3 / 4;
+  aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 14px;
   background: #47317e;

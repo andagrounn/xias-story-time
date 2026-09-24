@@ -9,19 +9,31 @@ test("video story yields a youtube embed with its id", () => {
 });
 
 test("audio story yields an audio element with cover artwork", () => {
-  const html = playerMarkup({ title: "A", cover: "c.jpg", primary: "audio", media: { audio: "n.mp3" } });
-  assert.match(html, /<audio[^>]+src="n\.mp3"/);
-  assert.match(html, /c\.jpg/);
+  const html = playerMarkup({
+    title: "A", cover: "https://s/c.jpg", primary: "audio", media: { audio: "https://s/n.mp3" },
+  });
+  assert.match(html, /<audio[^>]+src="https:\/\/s\/n\.mp3"/);
+  assert.match(html, /https:\/\/s\/c\.jpg/);
 });
 
 test("read story yields a reader with page images and counter", () => {
   const html = playerMarkup({
     title: "R", primary: "read",
-    media: { read: "u", pages: ["p1.jpg", "p2.jpg"] },
+    media: { read: "https://s/u", pages: ["https://s/p1.jpg", "https://s/p2.jpg"] },
   });
-  assert.match(html, /p1\.jpg/);
+  assert.match(html, /https:\/\/s\/p1\.jpg/);
   assert.match(html, /reader/);
   assert.match(html, /1 \/ 2/);
+});
+
+test("non-http(s) urls are dropped from attributes (XSS defense)", () => {
+  const html = playerMarkup({
+    title: "X", primary: "read",
+    media: { read: `javascript:alert(1)"><script>`, pages: [] },
+  });
+  assert.doesNotMatch(html, /javascript:/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /href=""/); // scrubbed to empty
 });
 
 test("read story with no pages falls back to a link out", () => {

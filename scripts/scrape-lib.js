@@ -58,7 +58,9 @@ export function mergeSources(sources) {
       map.set(key, {
         id: catalogId(card.title),
         title: card.title,
-        ageRange: "4-6",
+        ageRange: card.ageRange || "4-6",
+        source: card.source || "storyberries",
+        level: card.level || null,
         cover: card.cover || null,
         media: { video: null, audio: null, read: null, pages: [] },
       });
@@ -70,4 +72,132 @@ export function mergeSources(sources) {
     }
   }
   return [...map.values()];
+}
+
+// ---- StoryWeaver (Pratham Books) open library --------------------------------
+// The books-search API returns openly-licensed (CC-BY) picture books with a
+// reading level. Level 1–2 English books fit ages 4–6. StoryWeaver's reader is
+// form-gated, so these are "library" cards that open the book on StoryWeaver —
+// consistent with the app's stream-don't-rehost rule.
+export function pickCover(coverImage) {
+  const sizes = coverImage?.sizes;
+  if (!Array.isArray(sizes) || !sizes.length) return null;
+  // Prefer a mid/large crop (index 2–3) for a crisp cover, fall back to biggest.
+  const byWidth = [...sizes].sort((a, b) => (a.width || 0) - (b.width || 0));
+  return (byWidth[2] || byWidth[byWidth.length - 1]).url || null;
+}
+
+export function parseStoryWeaver(json) {
+  const rows = json?.data;
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .map((b) => ({
+      title: (b.title || "").trim(),
+      // Link straight into the reader (?mode=read) so a tap opens the book, not
+      // the story's landing page.
+      url: b.slug ? `https://storyweaver.org.in/en/stories/${b.slug}?mode=read` : null,
+      cover: pickCover(b.coverImage),
+      level: b.level != null ? String(b.level) : null,
+      source: "storyweaver",
+    }))
+    .filter((c) => c.title && c.url && c.cover);
+}
+
+// ---- Safe YouTube video matching --------------------------------------------
+// Extract (videoId, title, channelId) triples from a YouTube results page's
+// embedded ytInitialData. We never trust an arbitrary search hit — bestVideoMatch
+// keeps a result only when it comes from a vetted channel AND its title actually
+// covers the story title. This is what makes auto-linking safe for a 4–6 app.
+// Walk any YouTube response object (search HTML data OR innertube JSON) and pull
+// every videoRenderer plus the next continuation token (for paging a channel).
+export function extractSearchPage(data) {
+  const videos = [];
+  let continuation = null;
+  const walk = (o) => {
+    if (!o || typeof o !== "object") return;
+    if (o.videoRenderer && o.videoRenderer.videoId) {
+      const v = o.videoRenderer;
+      const byline = JSON.stringify(v.ownerText || v.longBylineText || v.shortBylineText || "");
+      const channelId = (byline.match(/UC[\w-]{22}/) || [])[0] || null;
+      videos.push({
+        id: v.videoId,
+        title: v.title?.runs?.[0]?.text || v.title?.simpleText || "",
+        channelId,
+      });
+    }
+    if (o.continuationItemRenderer) {
+      continuation =
+        o.continuationItemRenderer.continuationEndpoint?.continuationCommand?.token || continuation;
+    }
+    for (const k in o) walk(o[k]);
+  };
+  walk(data);
+  return { videos, continuation };
+}
+
+export function parseSearchResults(html) {
+  const m = html.match(/ytInitialData\s*=\s*(\{.+?\})\s*;\s*<\/script>/s);
+  if (!m) return [];
+  try {
+    return extractSearchPage(JSON.parse(m[1])).videos;
+  } catch {
+    return [];
+  }
+}
+
+// YouTube video titles carry marketing cruft ("🍓 Read along animated picture
+// book | Age 4-6 | #family"). cleanVideoTitle keeps just the story name.
+export function cleanVideoTitle(raw) {
+  let t = String(raw || "");
+  const markers = [/🍓/u, /\|/, /[-–—]\s*Read[\s-]?along/i, /\bKids Read[\s-]?along/i, /\bRead[\s-]?along/i, /\bRead Aloud/i];
+  let cut = t.length;
+  for (const m of markers) {
+    const idx = t.search(m);
+    if (idx >= 0) cut = Math.min(cut, idx);
+  }
+  t = t.slice(0, cut);
+  t = t.replace(/#[A-Za-z]\w*/g, " "); // drop word hashtags, keep "#1"
+  t = t.replace(/[\u{1F000}-\u{1FAFF}☀-➿←-⇿]/gu, " "); // emoji/symbols
+  t = t.replace(/\s+/g, " ").trim().replace(/^[|\-–—:,\s]+|[|\-–—:,\s]+$/g, "").trim();
+  const letters = t.replace(/[^A-Za-z]/g, "");
+  if (letters && letters === letters.toUpperCase()) {
+    t = t.toLowerCase().replace(/(^|\s)([a-z])/g, (_, p, c) => p + c.toUpperCase());
+  }
+  return t;
+}
+
+export function parseAgeFromTitle(raw) {
+  const t = String(raw || "");
+  if (/age\s*7\s*-\s*12/i.test(t)) return "7-12";
+  if (/age\s*4\s*-\s*6/i.test(t)) return "4-6";
+  return null;
+}
+
+export const ytThumb = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
+
+const STOPWORDS = new Set(["the", "a", "an", "and", "of", "to", "for", "s"]);
+
+// Fraction of the story's meaningful words that appear in the video title.
+export function titleCoverage(storyTitle, videoTitle) {
+  const words = (t) =>
+    normalizeTitle(t)
+      .split(" ")
+      .filter((w) => w.length > 1 && !STOPWORDS.has(w));
+  const want = words(storyTitle);
+  if (!want.length) return 0;
+  const have = new Set(words(videoTitle));
+  const hit = want.filter((w) => have.has(w)).length;
+  return hit / want.length;
+}
+
+// Pick the strongest video from a vetted channel that clearly matches the story.
+// vetted is a Set/object of allowed channel IDs. Returns a videoId or null.
+export function bestVideoMatch(storyTitle, results, vetted, minCoverage = 0.8) {
+  const allowed = (id) => (vetted instanceof Set ? vetted.has(id) : Boolean(vetted?.[id]));
+  const scored = (results || [])
+    .filter((r) => r.id && allowed(r.channelId))
+    .map((r) => ({ ...r, score: titleCoverage(storyTitle, r.title) }))
+    .filter((r) => r.score >= minCoverage)
+    .sort((a, b) => b.score - a.score);
+  return scored.length ? scored[0].id : null;
 }

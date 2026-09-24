@@ -6,13 +6,13 @@ export function playerMarkup(story) {
   }
   if (primary === "audio") {
     return `<div class="audio-stage">
-      <img class="audio-art" src="${media ? story.cover : ""}" alt="" />
-      <audio controls autoplay src="${media.audio}"></audio>
+      <img class="audio-art" src="${safeUrl(story.cover)}" alt="" />
+      <audio controls autoplay src="${safeUrl(media.audio)}"></audio>
     </div>`;
   }
   if (primary === "read" && media.pages && media.pages.length) {
     const pages = media.pages
-      .map((p, i) => `<img class="page${i === 0 ? " on" : ""}" src="${p}" alt="Page ${i + 1}" />`)
+      .map((p, i) => `<img class="page${i === 0 ? " on" : ""}" src="${safeUrl(p)}" alt="Page ${i + 1}" />`)
       .join("");
     return `<div class="reader" data-page="0" data-total="${media.pages.length}">
       <button class="nav prev" aria-label="Previous page">‹</button>
@@ -21,14 +21,24 @@ export function playerMarkup(story) {
       <span class="counter">1 / ${media.pages.length}</span>
     </div>`;
   }
+  const site = SOURCE_NAME[story.source] || "its home site";
   return `<div class="linkout">
-    <p>This story opens on Storyberries.</p>
-    <a class="linkout-btn" href="${media.read}" target="_blank" rel="noopener">Open the book 📖</a>
+    <img class="linkout-cover" src="${safeUrl(story.cover)}" alt="" onerror="this.remove()" />
+    <p>This story opens on ${site}.</p>
+    <a class="linkout-btn" href="${safeUrl(media.read)}" target="_blank" rel="noopener">Open the book 📖</a>
   </div>`;
 }
 
+const SOURCE_NAME = { storyberries: "Storyberries", storyweaver: "StoryWeaver" };
+
 function escapeAttr(s) {
   return String(s).replace(/"/g, "&quot;");
+}
+
+// Only allow http(s) URLs into an attribute, and escape quotes so a crafted
+// value can't break out of the attribute (defense-in-depth for scraped data).
+function safeUrl(u) {
+  return /^https?:\/\//i.test(u || "") ? escapeAttr(u) : "";
 }
 
 export function closePlayer() {

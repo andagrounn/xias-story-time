@@ -9,8 +9,18 @@ export function hasMedia(media, type) {
   return Boolean(media[type]);
 }
 
+// A "book" is an external library entry: it opens on its source site (a read
+// link) but has nothing that plays in-app (no video, no audio, no page images).
+export function isBook(media) {
+  if (!media) return false;
+  return Boolean(media.read) && !hasMedia(media, "video") &&
+    !hasMedia(media, "audio") && !hasMedia(media, "read");
+}
+
 export function deriveBadges(media) {
-  return MEDIA_PRIORITY.filter((k) => hasMedia(media, k));
+  const badges = MEDIA_PRIORITY.filter((k) => hasMedia(media, k));
+  if (isBook(media)) badges.push("book");
+  return badges;
 }
 
 export function pickPrimary(media) {
