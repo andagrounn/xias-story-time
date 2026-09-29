@@ -1,7 +1,8 @@
 export function playerMarkup(story) {
   const { primary, media } = story;
   if (primary === "video") {
-    return `<iframe class="stage" src="https://www.youtube-nocookie.com/embed/${media.video}?autoplay=1&rel=0"
+    // cc_load_policy=0 keeps captions off by default; iv_load_policy=3 hides annotations.
+    return `<iframe class="stage" src="https://www.youtube-nocookie.com/embed/${media.video}?autoplay=1&rel=0&cc_load_policy=0&iv_load_policy=3"
       title="${escapeAttr(story.title)}" allow="autoplay; fullscreen" allowfullscreen frameborder="0"></iframe>`;
   }
   if (primary === "audio") {
