@@ -20,7 +20,15 @@ const AGE_CATEGORIES = [
 // Storyberries' own YouTube channel — every upload is an animated storybook, so
 // harvesting the whole channel gives us "all the books that have a video".
 const STORYBERRIES_CHANNEL = "UCQoz7oLrUVZlC0hsXdyA7oA";
-const HARVEST_QUERY = "storyberries read along animated picture book";
+// A single search's continuation sometimes dries up early (~250) or runs deep
+// (~380). Union several seed queries so coverage is comprehensive AND stable.
+const HARVEST_QUERIES = [
+  "storyberries read along animated picture book",
+  "storyberries bedtime story for kids",
+  "storyberries fairy tale read along",
+  "storyberries poem for kids animated",
+  "storyberries picture book english subtitles",
+];
 const UA = { headers: { "User-Agent": "Mozilla/5.0 (personal reader)" } };
 
 async function getHtml(url) {
@@ -62,7 +70,7 @@ async function ytSearch(body) {
   return r.json();
 }
 
-async function harvestChannelVideos(channelId, query, maxPages = 30) {
+async function harvestChannelVideos(channelId, queries, maxPages = 25) {
   const seen = new Set();
   const out = [];
   const take = (videos) => {
@@ -73,18 +81,21 @@ async function harvestChannelVideos(channelId, query, maxPages = 30) {
       if (title) out.push({ id: v.id, title, ageRange: parseAgeFromTitle(v.title) });
     }
   };
-  let { videos, continuation } = extractSearchPage(await ytSearch({ query, params: "EgIQAQ%3D%3D" }));
-  take(videos);
-  let page = 1;
-  while (continuation && page < maxPages) {
-    const { videos: v2, continuation: c2 } = extractSearchPage(await ytSearch({ continuation }));
-    if (!v2.length) break;
-    take(v2);
-    continuation = c2;
-    page++;
-    await sleep(80);
+  for (const query of queries) {
+    let { videos, continuation } = extractSearchPage(await ytSearch({ query, params: "EgIQAQ%3D%3D" }));
+    take(videos);
+    let page = 1;
+    while (continuation && page < maxPages) {
+      const { videos: v2, continuation: c2 } = extractSearchPage(await ytSearch({ continuation }));
+      if (!v2.length) break;
+      take(v2);
+      continuation = c2;
+      page++;
+      await sleep(80);
+    }
+    console.log(`  harvest "${query.slice(0, 34)}…" → ${out.length} unique so far`);
   }
-  console.log(`harvested ${out.length} channel videos over ${page} pages`);
+  console.log(`harvested ${out.length} unique channel videos`);
   return out;
 }
 
@@ -96,8 +107,15 @@ const COVER_CATEGORIES = [
   ["picture-books", 60],
   ["5-min-stories-free-bedtime-stories-poems-fairy-tales", 45],
   ["10-min-stories-free-bedtime-stories-poems-fairy-tales", 30],
+  ["15-min-stories-free-bedtime-stories-poems-fairy-tales", 30],
+  ["20-mins-stories-and-chapter-books", 25],
   ["poems-for-kids", 25],
   ["fairy-tales", 25],
+  ["animal-stories-for-kids", 25],
+  ["adventure-books-for-kids", 25],
+  ["funny-kids-books", 25],
+  ["christmas-stories-for-kids", 20],
+  ["learn-to-read-with-kids-books-early-readers", 20],
 ];
 
 async function buildCoverIndex() {
@@ -161,7 +179,7 @@ for (const cat of AGE_CATEGORIES) {
 const readSources = readCards.map((card) => ({ card, media: { read: card.url } }));
 
 // Every animated video book on the channel.
-const harvest = await harvestChannelVideos(STORYBERRIES_CHANNEL, HARVEST_QUERY);
+const harvest = await harvestChannelVideos(STORYBERRIES_CHANNEL, HARVEST_QUERIES);
 const videoSources = harvest.map((v) => ({
   card: {
     title: v.title,

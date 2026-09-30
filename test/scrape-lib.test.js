@@ -23,7 +23,8 @@ const listing = readFileSync(new URL("../scripts/fixtures/listing.html", import.
 
 test("normalizeTitle collapses to a match key", () => {
   assert.equal(normalizeTitle("The OTHER Superheroes!"), "the other superheroes");
-  assert.equal(normalizeTitle("Dawn Elizabeth Daly's Pet"), "dawn elizabeth daly s pet");
+  assert.equal(normalizeTitle("Dawn Elizabeth Daly's Pet"), "dawn elizabeth dalys pet");
+  assert.equal(normalizeTitle("MOMS RED COAT"), normalizeTitle("Mom's Red Coat")); // apostrophe-insensitive
 });
 
 test("parseListing extracts story cards with title, url, cover", () => {

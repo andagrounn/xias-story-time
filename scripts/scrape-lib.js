@@ -1,7 +1,13 @@
 import { parse } from "node-html-parser";
 
 export function normalizeTitle(t) {
-  return (t || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  // Drop apostrophes before collapsing so "Mom's" and shouty "MOMS" match
+  // (YouTube titles often omit the apostrophe the book keeps).
+  return (t || "")
+    .toLowerCase()
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 export function parseListing(html) {
