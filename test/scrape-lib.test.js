@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   normalizeTitle,
   parseListing,
+  parseStoryberriesSearch,
+  matchCover,
   mergeSources,
   parseStoryPages,
   parseStoryWeaver,
@@ -133,6 +135,33 @@ test("parseSearchResults pulls video id, title, and channel from ytInitialData",
   assert.equal(out[0].channelId, "UCQoz7oLrUVZlC0hsXdyA7oA");
   assert.match(out[0].title, /BILLY GOATS/);
   assert.deepEqual(parseSearchResults("<html>no data</html>"), []);
+});
+
+test("parseStoryberriesSearch reads title + cover from search-result articles", () => {
+  const html = `<article>
+      <a href="https://www.storyberries.com/the-forgetful-elephant/"><img class="wp-post-image" src="https://s/elephant.jpg" /></a>
+      <h2 class="entry-title">The Forgetful Elephant</h2>
+    </article>
+    <article>
+      <img class="wp-post-image" src="data:image/svg+xml,placeholder" data-lazy-src="https://s/sunshine.jpg" />
+      <h2 class="entry-title">I Love Sunshine</h2>
+    </article>`;
+  const cards = parseStoryberriesSearch(html);
+  assert.equal(cards.length, 2);
+  assert.equal(cards[0].title, "The Forgetful Elephant");
+  assert.equal(cards[0].cover, "https://s/elephant.jpg");
+  assert.equal(cards[1].cover, "https://s/sunshine.jpg"); // prefers data-lazy-src over data: placeholder
+});
+
+test("matchCover picks exact title, then strong coverage, else null", () => {
+  const cards = [
+    { title: "The Forgetful Elephant", cover: "elephant.jpg" },
+    { title: "I Love Sunshine (a poem)", cover: "sunshine.jpg" },
+  ];
+  assert.equal(matchCover("The Forgetful Elephant", cards), "elephant.jpg");
+  assert.equal(matchCover("I Love Sunshine", cards), "sunshine.jpg"); // coverage match
+  assert.equal(matchCover("Totally Different Story", cards), null);
+  assert.equal(matchCover("x", []), null);
 });
 
 test("cleanVideoTitle strips marketing cruft and title-cases shouty names", () => {

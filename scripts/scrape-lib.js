@@ -22,6 +22,39 @@ export function parseListing(html) {
     .filter((c) => c.title && c.url && c.cover);
 }
 
+// Storyberries' ?s= search results put the title in an <h2 class="entry-title">
+// (plain text, no inner link) and the story link on the thumbnail, so
+// parseListing misses them. This parser reads title + cover for cover lookups.
+export function parseStoryberriesSearch(html) {
+  const root = parse(html);
+  return root
+    .querySelectorAll("article")
+    .map((card) => {
+      const title = card.querySelector(".entry-title")?.text.trim();
+      const link = card.querySelector(".entry-title a") || card.querySelector("a[href]");
+      const img = card.querySelector("img.wp-post-image, img");
+      const cover =
+        img?.getAttribute("data-lazy-src") ||
+        img?.getAttribute("data-src") ||
+        img?.getAttribute("src");
+      return { title, url: link?.getAttribute("href"), cover };
+    })
+    .filter((c) => c.title && c.cover && !String(c.cover).startsWith("data:"));
+}
+
+// Best Storyberries cover for a title from a set of search-result cards:
+// exact normalized-title match wins, else a strong title-coverage match.
+export function matchCover(title, cards) {
+  const norm = normalizeTitle(title);
+  const exact = (cards || []).find((c) => normalizeTitle(c.title) === norm);
+  if (exact) return exact.cover;
+  const best = (cards || [])
+    .map((c) => ({ c, score: titleCoverage(title, c.title) }))
+    .filter((x) => x.score >= 0.85)
+    .sort((a, b) => b.score - a.score)[0];
+  return best ? best.c.cover : null;
+}
+
 export function pageImageUrl(img) {
   // Lazy-load plugins keep the real URL in data-lazy-src/data-src and leave an
   // inline SVG placeholder in src; prefer the data-* attrs and reject data: URIs.

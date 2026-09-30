@@ -2,6 +2,8 @@ import { writeFileSync } from "node:fs";
 import {
   parseListing,
   parseStoryPages,
+  normalizeTitle,
+  matchCover,
   extractSearchPage,
   cleanVideoTitle,
   parseAgeFromTitle,
@@ -86,6 +88,63 @@ async function harvestChannelVideos(channelId, query, maxPages = 30) {
   return out;
 }
 
+// Build a title→cover index by crawling Storyberries' story-type category
+// listings. Category pages are static and cache-friendly (unlike the ?s= search,
+// which is server-expensive and rate-limits), so this is the respectful way to
+// harvest real book covers in bulk. Highest-yield categories for video books:
+const COVER_CATEGORIES = [
+  ["picture-books", 60],
+  ["5-min-stories-free-bedtime-stories-poems-fairy-tales", 45],
+  ["10-min-stories-free-bedtime-stories-poems-fairy-tales", 30],
+  ["poems-for-kids", 25],
+  ["fairy-tales", 25],
+];
+
+async function buildCoverIndex() {
+  const map = new Map(); // normalized title → { title, cover }
+  for (const [cat, cap] of COVER_CATEGORIES) {
+    let got = 0;
+    for (let p = 1; p <= cap; p++) {
+      const url = `https://www.storyberries.com/category/${cat}/${p === 1 ? "" : `page/${p}/`}`;
+      let cards;
+      try {
+        const r = await fetch(url, UA);
+        if (!r.ok) break;
+        cards = parseListing(await r.text());
+      } catch {
+        break;
+      }
+      if (!cards.length) break;
+      for (const c of cards) {
+        const k = normalizeTitle(c.title);
+        if (c.cover && !map.has(k)) map.set(k, { title: c.title, cover: c.cover });
+      }
+      got += cards.length;
+      await sleep(40);
+    }
+    console.log(`  cover index: ${cat} (+${got}) → ${map.size} unique`);
+  }
+  return map;
+}
+
+// Replace YouTube-thumbnail covers with the matching Storyberries book cover.
+// Exact title match first, then a strong fuzzy match; keep the thumbnail when
+// nothing matches (e.g. multi-story "collection" videos with no book page).
+function backfillCovers(stories, index) {
+  const cards = [...index.values()];
+  let swapped = 0;
+  for (const s of stories) {
+    if (!/i\.ytimg\.com/.test(s.cover || "")) continue;
+    const cover = index.get(normalizeTitle(s.title))?.cover || matchCover(s.title, cards);
+    if (cover) {
+      s.cover = cover;
+      swapped++;
+    }
+  }
+  const total = stories.filter((s) => /i\.ytimg\.com/.test(s.cover || "")).length + swapped;
+  console.log(`covers: swapped ${swapped} of ${total} youtube thumbnails for storyberries covers`);
+}
+
 // ---- Build -------------------------------------------------------------------
 
 // Read-along picture books, tagged by age.
@@ -127,6 +186,10 @@ for (const s of stories) {
     }
   }
 }
+
+// Prefer the real Storyberries book cover over the YouTube thumbnail.
+const coverIndex = await buildCoverIndex();
+backfillCovers(stories, coverIndex);
 
 // Keep only records that play in-app: a video or read-along pages.
 stories = stories.filter((s) => s.media.video || s.media.pages.length);
