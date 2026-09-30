@@ -81,6 +81,13 @@ export function parseStoryPages(html) {
     .filter((u) => u && /\.(jpg|jpeg|png)/i.test(u) && !/-150x150|logo|avatar|gravatar|readmio-|banner/i.test(u));
 }
 
+// Storyberries read-alongs ship a "Listen" narration track (an mp3, usually
+// podbean-hosted) on the story page. Grab it so the reader can narrate.
+export function parseNarration(html) {
+  const m = String(html || "").match(/https?:\/\/[^"'\s)]+\.mp3/i);
+  return m ? m[0] : null;
+}
+
 export function catalogId(title) {
   return normalizeTitle(title).replace(/\s+/g, "-");
 }
@@ -101,7 +108,7 @@ export function mergeSources(sources) {
         source: card.source || "storyberries",
         level: card.level || null,
         cover: card.cover || null,
-        media: { video: null, audio: null, read: null, pages: [] },
+        media: { video: null, audio: null, narration: null, read: null, pages: [] },
       });
     }
     const rec = map.get(key);

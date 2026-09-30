@@ -15,11 +15,18 @@ export function playerMarkup(story) {
     const pages = media.pages
       .map((p, i) => `<img class="page${i === 0 ? " on" : ""}" src="${safeUrl(p)}" alt="Page ${i + 1}" />`)
       .join("");
+    // Optional narration: a toggle button + a hidden audio track (the mp3 keeps
+    // playing across page turns; closing the player stops it).
+    const narration = safeUrl(media.narration)
+      ? `<button class="narrate" aria-pressed="false" aria-label="Play narration">🔊 Narrate</button>
+         <audio class="narration" src="${safeUrl(media.narration)}" preload="none"></audio>`
+      : "";
     return `<div class="reader" data-page="0" data-total="${media.pages.length}">
       <button class="nav prev" aria-label="Previous page">‹</button>
       <div class="pages">${pages}</div>
       <button class="nav next" aria-label="Next page">›</button>
       <span class="counter">1 / ${media.pages.length}</span>
+      ${narration}
     </div>`;
   }
   const site = SOURCE_NAME[story.source] || "its home site";
@@ -83,6 +90,26 @@ export function openPlayer(story) {
   if (reader) {
     reader.querySelector(".next").addEventListener("click", () => turnPage(reader, 1));
     reader.querySelector(".prev").addEventListener("click", () => turnPage(reader, -1));
+    wireNarration(reader);
   }
   document.addEventListener("keydown", onKey);
+}
+
+// Narration toggle: play/pause the mp3, reflecting state on the button.
+function wireNarration(reader) {
+  const btn = reader.querySelector(".narrate");
+  const audio = reader.querySelector(".narration");
+  if (!btn || !audio) return;
+  const sync = () => {
+    const on = !audio.paused;
+    btn.setAttribute("aria-pressed", String(on));
+    btn.textContent = on ? "⏸ Narrating" : "🔊 Narrate";
+  };
+  btn.addEventListener("click", () => {
+    if (audio.paused) audio.play().catch(() => {});
+    else audio.pause();
+  });
+  audio.addEventListener("play", sync);
+  audio.addEventListener("pause", sync);
+  audio.addEventListener("ended", sync);
 }

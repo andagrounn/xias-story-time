@@ -197,6 +197,22 @@ body {
   border-radius: 999px;
   font-size: 16px;
 }
+.narrate {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  background: var(--accent);
+  color: #3a1e6e;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 18px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+.narrate:hover { transform: translateY(-2px); }
+.narrate[aria-pressed="true"] { background: #ffd76a; }
 
 .linkout { text-align: center; padding: 40px 20px; }
 .linkout p { font-size: 22px; }

@@ -8,6 +8,7 @@ import {
   matchCover,
   mergeSources,
   parseStoryPages,
+  parseNarration,
   parseStoryWeaver,
   pickCover,
   parseSearchResults,
@@ -49,6 +50,17 @@ test("parseStoryPages prefers lazy-src and rejects SVG/UI placeholders", () => {
   </div>`;
   const pages = parseStoryPages(html);
   assert.deepEqual(pages, ["https://s/page_1.jpg", "https://s/page_2.jpg"]);
+});
+
+test("parseNarration grabs the mp3 listen track, else null", () => {
+  const html = `<audio src="https://mcdn.podbean.com/mf/web/x/The_Window_Seat.mp3"></audio>`;
+  assert.equal(parseNarration(html), "https://mcdn.podbean.com/mf/web/x/The_Window_Seat.mp3");
+  assert.equal(parseNarration("<p>no audio here</p>"), null);
+});
+
+test("mergeSources media shape includes a narration slot", () => {
+  const [rec] = mergeSources([{ card: { title: "X", cover: "c.jpg" }, media: {} }]);
+  assert.equal(rec.media.narration, null);
 });
 
 test("mergeSources dedupes by title and merges media across sources", () => {

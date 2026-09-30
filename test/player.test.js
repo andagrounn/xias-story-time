@@ -24,6 +24,16 @@ test("read story yields a reader with page images and counter", () => {
   assert.match(html, /https:\/\/s\/p1\.jpg/);
   assert.match(html, /reader/);
   assert.match(html, /1 \/ 2/);
+  assert.doesNotMatch(html, /class="narrate"/); // no toggle without narration
+});
+
+test("read story with narration adds a toggle + audio track", () => {
+  const html = playerMarkup({
+    title: "R", primary: "read",
+    media: { read: "https://s/u", pages: ["https://s/p1.jpg"], narration: "https://s/story.mp3" },
+  });
+  assert.match(html, /class="narrate"/);
+  assert.match(html, /<audio[^>]+class="narration"[^>]+src="https:\/\/s\/story\.mp3"/);
 });
 
 test("non-http(s) urls are dropped from attributes (XSS defense)", () => {

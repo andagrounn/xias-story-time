@@ -101,7 +101,7 @@ if (typeof document !== "undefined") {
   const root = document.getElementById("app");
   loadCatalog()
     .then((stories) => {
-      import("./player.js?v=4").then(({ openPlayer }) => initApp(root, stories, openPlayer));
+      import("./player.js?v=5").then(({ openPlayer }) => initApp(root, stories, openPlayer));
     })
     .catch(() => {
       root.querySelector("#grid").innerHTML =

@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import {
   parseListing,
   parseStoryPages,
+  parseNarration,
   normalizeTitle,
   matchCover,
   extractSearchPage,
@@ -260,11 +261,13 @@ const playlistSources = playlistLists.flat().map(({ v, source }) => ({
 // an existing read-along by title; video fills in the media.video slot.
 let stories = mergeSources([...readSources, ...videoSources, ...playlistSources]);
 
-// Fill page images for read-alongs that have no video, so they read in-app.
+// Fill page images + the "Listen" narration track for read-alongs (one fetch each).
 for (const s of stories) {
   if (!s.media.video && s.media.read) {
     try {
-      s.media.pages = parseStoryPages(await getHtml(s.media.read)).slice(0, 30);
+      const html = await getHtml(s.media.read);
+      s.media.pages = parseStoryPages(html).slice(0, 30);
+      s.media.narration = parseNarration(html);
     } catch {
       /* leave pages empty */
     }
