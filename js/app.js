@@ -1,4 +1,4 @@
-import { loadCatalog } from "./catalog.js";
+import { loadCatalog } from "./catalog.js?v=6";
 
 export const BADGE_ICON = { video: "🎬", audio: "🔊", read: "📖", book: "📚" };
 const CHIP_LABEL = { all: "All", video: "🎬 Video", audio: "🔊 Audio", read: "📖 Read", book: "📚 Library" };
@@ -101,7 +101,7 @@ if (typeof document !== "undefined") {
   const root = document.getElementById("app");
   loadCatalog()
     .then((stories) => {
-      import("./player.js?v=5").then(({ openPlayer }) => initApp(root, stories, openPlayer));
+      import("./player.js?v=6").then(({ openPlayer }) => initApp(root, stories, openPlayer));
     })
     .catch(() => {
       root.querySelector("#grid").innerHTML =

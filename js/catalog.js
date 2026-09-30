@@ -32,7 +32,9 @@ export function normalizeStory(raw) {
 }
 
 export async function loadCatalog(url = "data/stories.json", fetchFn = fetch) {
-  const res = await fetchFn(url);
+  // Always revalidate the catalog so a fresh build shows up without a hard
+  // refresh (it changes every scrape and isn't version-stamped like css/js).
+  const res = await fetchFn(url, { cache: "no-cache" });
   if (!res.ok) throw new Error(`Failed to load catalog: ${res.status}`);
   const data = await res.json();
   return data.map(normalizeStory);
