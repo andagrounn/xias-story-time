@@ -226,8 +226,17 @@ export function cleanVooksTitle(raw) {
 }
 
 // A promo/compilation, not a single storybook (skip these in a playlist import).
+// Single stories are specific book titles; compilations are generic topic
+// collections ("X Stories for Kids", "Read Aloud Stories for…", "…Kids Books").
 export function isVooksNonStory(raw) {
-  return /what is vooks|compilation|\.\.\.and more|storybooks\b.*\band more/i.test(String(raw || ""));
+  const t = String(raw || "");
+  return (
+    /what is vooks|compilation|\.\.\.and more/i.test(t) ||
+    /\bfor kids\b[!?\s]*$/i.test(t) || // "…Stories for Kids!", "…Videos for Kids"
+    /\bfor kindergart\w*/i.test(t) || // "…for Kindergarteners!"
+    /read aloud (animated )?stories/i.test(t) || // "Toddler Read Aloud Animated Stories!"
+    /\bkids books\b/i.test(t) // "Animated Read Aloud Kids Books"
+  );
 }
 
 // Pull videos from a playlist page's ytInitialData. YouTube renders playlist

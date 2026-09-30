@@ -187,10 +187,18 @@ test("cleanVooksTitle handles both Vooks title shapes", () => {
   assert.equal(cleanVooksTitle("The HICCUPotamus! | Read Aloud Kids Book"), "The HICCUPotamus!");
 });
 
-test("isVooksNonStory flags promos and compilations", () => {
-  assert.equal(isVooksNonStory("What is Vooks? | Kids Animated Storybooks 📚 ...and more!"), true);
-  assert.equal(isVooksNonStory("Read Aloud Kids Books Compilation | Vooks"), true);
-  assert.equal(isVooksNonStory("Lil Poo! | Animated Kids Book | Vooks"), false);
+test("isVooksNonStory flags promos and compilations (on cleaned titles)", () => {
+  assert.equal(isVooksNonStory("What is Vooks?"), true);
+  assert.equal(isVooksNonStory("Read Aloud Kids Books Compilation"), true);
+  // topic collections: "X Stories for Kids", "Read Aloud Stories for…", "…Kids Books"
+  assert.equal(isVooksNonStory("Stories About Kindness for Kids!"), true);
+  assert.equal(isVooksNonStory("Read Aloud Stories for Kindergarteners!"), true);
+  assert.equal(isVooksNonStory("Animated Read Aloud Kids Books"), true);
+  assert.equal(isVooksNonStory("Numbers and Counting Videos for Kids"), true);
+  // real single stories are kept
+  assert.equal(isVooksNonStory("Lil Poo!"), false);
+  assert.equal(isVooksNonStory("The HICCUPotamus!"), false);
+  assert.equal(isVooksNonStory("Our Class is a Family Read Aloud"), false);
 });
 
 test("extractPlaylistVideos reads lockupViewModel items and dedupes", () => {

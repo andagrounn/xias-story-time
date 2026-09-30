@@ -141,10 +141,12 @@ async function harvestPlaylist({ id, source, ageRange, clean }) {
     const html = await fetch(`https://www.youtube.com/playlist?list=${id}`, CONSENT_UA).then((r) => r.text());
     const raw = sliceJson(html, "ytInitialData");
     const videos = raw ? extractPlaylistVideos(JSON.parse(raw)) : [];
+    // Clean the title first, then drop compilations/promos — the "for Kids" /
+    // "Read Aloud Stories" markers sit at the end only once the "| Vooks…" suffix
+    // is stripped.
     const books = videos
-      .filter((v) => !isVooksNonStory(v.title))
       .map((v) => ({ id: v.id, title: clean(v.title), ageRange }))
-      .filter((v) => v.title);
+      .filter((v) => v.title && !isVooksNonStory(v.title));
     console.log(`playlist ${source}: ${books.length} storybooks (from ${videos.length} videos)`);
     return books.map((v) => ({ v, source }));
   } catch (e) {
