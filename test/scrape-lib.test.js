@@ -12,7 +12,10 @@ import {
   pickCover,
   parseSearchResults,
   extractSearchPage,
+  extractPlaylistVideos,
   cleanVideoTitle,
+  cleanVooksTitle,
+  isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
   titleCoverage,
@@ -174,6 +177,34 @@ test("cleanVideoTitle strips marketing cruft and title-cases shouty names", () =
   assert.equal(cleanVideoTitle("Friendship Collection #1 | Age 4-6 | 60 minutes | Animated"), "Friendship Collection #1");
   assert.equal(cleanVideoTitle("LARGO DOESN'T KNOW 🍓 Read along"), "Largo Doesn't Know");
   assert.equal(cleanVideoTitle("The Window Seat"), "The Window Seat"); // already clean
+});
+
+test("cleanVooksTitle handles both Vooks title shapes", () => {
+  assert.equal(cleanVooksTitle("Lil Poo! | Animated Kids Book | Vooks Narrated Storybooks"), "Lil Poo!");
+  assert.equal(cleanVooksTitle("Kids Book Read Aloud: Luis And Tabitha! | Vooks"), "Luis And Tabitha!");
+  assert.equal(cleanVooksTitle("Animated Read Aloud Kids Book: OPPOSITES! | Vooks"), "OPPOSITES!");
+  assert.equal(cleanVooksTitle("Nature Story for Kids: The Boy Who Grew | Vooks"), "The Boy Who Grew");
+  assert.equal(cleanVooksTitle("The HICCUPotamus! | Read Aloud Kids Book"), "The HICCUPotamus!");
+});
+
+test("isVooksNonStory flags promos and compilations", () => {
+  assert.equal(isVooksNonStory("What is Vooks? | Kids Animated Storybooks 📚 ...and more!"), true);
+  assert.equal(isVooksNonStory("Read Aloud Kids Books Compilation | Vooks"), true);
+  assert.equal(isVooksNonStory("Lil Poo! | Animated Kids Book | Vooks"), false);
+});
+
+test("extractPlaylistVideos reads lockupViewModel items and dedupes", () => {
+  const data = {
+    contents: [
+      { lockupViewModel: { contentType: "LOCKUP_CONTENT_TYPE_VIDEO", contentId: "vid00000001", metadata: { lockupMetadataViewModel: { title: { content: "One | Vooks" } } } } },
+      { lockupViewModel: { contentType: "LOCKUP_CONTENT_TYPE_VIDEO", contentId: "vid00000001", metadata: { lockupMetadataViewModel: { title: { content: "One dup" } } } } },
+      { lockupViewModel: { contentType: "LOCKUP_CONTENT_TYPE_PLAYLIST", contentId: "skipme" } },
+    ],
+  };
+  const vids = extractPlaylistVideos(data);
+  assert.equal(vids.length, 1);
+  assert.equal(vids[0].id, "vid00000001");
+  assert.equal(vids[0].title, "One | Vooks");
 });
 
 test("parseAgeFromTitle reads an age hint or returns null", () => {

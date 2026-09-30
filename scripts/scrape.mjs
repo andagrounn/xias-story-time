@@ -5,7 +5,10 @@ import {
   normalizeTitle,
   matchCover,
   extractSearchPage,
+  extractPlaylistVideos,
   cleanVideoTitle,
+  cleanVooksTitle,
+  isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
   mergeSources,
@@ -29,6 +32,18 @@ const HARVEST_QUERIES = [
   "storyberries poem for kids animated",
   "storyberries picture book english subtitles",
 ];
+
+// Extra YouTube playlists to import as video storybooks (title cleaner per source).
+const PLAYLISTS = [
+  { id: "PLlfBQqiQC2dnaIdp5Ko1PhSn169eVcy-E", source: "vooks", ageRange: "4-6", clean: cleanVooksTitle },
+];
+const CONSENT_UA = {
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
+    Cookie: "SOCS=CAI; CONSENT=YES+1",
+  },
+};
 const UA = { headers: { "User-Agent": "Mozilla/5.0 (personal reader)" } };
 
 async function getHtml(url) {
@@ -99,6 +114,45 @@ async function harvestChannelVideos(channelId, queries, maxPages = 25) {
   return out;
 }
 
+// Slice a balanced JSON object out of a big HTML page (ytInitialData is too large
+// and too followed-by-other-script for a simple regex).
+function sliceJson(html, marker) {
+  const i = html.indexOf(marker);
+  if (i < 0) return null;
+  const start = html.indexOf("{", i);
+  let depth = 0, inStr = false, esc = false;
+  for (let j = start; j < html.length; j++) {
+    const c = html[j];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+    } else if (c === '"') inStr = true;
+    else if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return html.slice(start, j + 1);
+  }
+  return null;
+}
+
+// Import a YouTube playlist's videos as storybook cards (title via the playlist's
+// cleaner, YouTube thumbnail as cover, tagged with its source + age range).
+async function harvestPlaylist({ id, source, ageRange, clean }) {
+  try {
+    const html = await fetch(`https://www.youtube.com/playlist?list=${id}`, CONSENT_UA).then((r) => r.text());
+    const raw = sliceJson(html, "ytInitialData");
+    const videos = raw ? extractPlaylistVideos(JSON.parse(raw)) : [];
+    const books = videos
+      .filter((v) => !isVooksNonStory(v.title))
+      .map((v) => ({ id: v.id, title: clean(v.title), ageRange }))
+      .filter((v) => v.title);
+    console.log(`playlist ${source}: ${books.length} storybooks (from ${videos.length} videos)`);
+    return books.map((v) => ({ v, source }));
+  } catch (e) {
+    console.warn(`playlist ${source} failed:`, e.message);
+    return [];
+  }
+}
+
 // Build a title→cover index by crawling Storyberries' story-type category
 // listings. Category pages are static and cache-friendly (unlike the ?s= search,
 // which is server-expensive and rate-limits), so this is the respectful way to
@@ -152,6 +206,9 @@ function backfillCovers(stories, index) {
   const cards = [...index.values()];
   let swapped = 0;
   for (const s of stories) {
+    // Only Storyberries stories map to Storyberries covers — never rewrite a
+    // playlist (e.g. Vooks) cover to a coincidentally same-titled book.
+    if (s.source !== "storyberries") continue;
     if (!/i\.ytimg\.com/.test(s.cover || "")) continue;
     const cover = index.get(normalizeTitle(s.title))?.cover || matchCover(s.title, cards);
     if (cover) {
@@ -190,9 +247,16 @@ const videoSources = harvest.map((v) => ({
   media: { video: v.id },
 }));
 
+// Extra YouTube playlists (Vooks etc.) → video cards with their thumbnail cover.
+const playlistLists = await Promise.all(PLAYLISTS.map(harvestPlaylist));
+const playlistSources = playlistLists.flat().map(({ v, source }) => ({
+  card: { title: v.title, cover: ytThumb(v.id), source, ageRange: v.ageRange },
+  media: { video: v.id },
+}));
+
 // Read cards first so their category age + real cover win when a video matches
 // an existing read-along by title; video fills in the media.video slot.
-let stories = mergeSources([...readSources, ...videoSources]);
+let stories = mergeSources([...readSources, ...videoSources, ...playlistSources]);
 
 // Fill page images for read-alongs that have no video, so they read in-app.
 for (const s of stories) {

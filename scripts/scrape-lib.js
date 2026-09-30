@@ -214,6 +214,40 @@ export function parseAgeFromTitle(raw) {
 
 export const ytThumb = (id) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
+// Vooks playlist titles use a different shape than Storyberries: either
+// "Real Title | Animated Kids Book | Vooks…" (title before the first pipe) or
+// "Kids Book Read Aloud: Real Title | Vooks…" (title after a generic label).
+export function cleanVooksTitle(raw) {
+  let t = String(raw || "").split("|")[0].trim(); // drop "| … | Vooks …"
+  const m = t.match(/^(.*?):\s*(.+)$/);
+  if (m && /kids?|read aloud|animated|story|book|learn|about/i.test(m[1])) t = m[2].trim();
+  t = t.replace(/[\u{1F000}-\u{1FAFF}☀-➿←-⇿]/gu, " ").replace(/\s+/g, " ").trim();
+  return t.replace(/^[|\-–—:,\s]+|[|\-–—:,\s]+$/g, "").trim();
+}
+
+// A promo/compilation, not a single storybook (skip these in a playlist import).
+export function isVooksNonStory(raw) {
+  return /what is vooks|compilation|\.\.\.and more|storybooks\b.*\band more/i.test(String(raw || ""));
+}
+
+// Pull videos from a playlist page's ytInitialData. YouTube renders playlist
+// items with the newer lockupViewModel, not playlistVideoRenderer.
+export function extractPlaylistVideos(data) {
+  const out = [];
+  const seen = new Set();
+  const walk = (o) => {
+    if (!o || typeof o !== "object") return;
+    const lv = o.lockupViewModel;
+    if (lv && lv.contentType === "LOCKUP_CONTENT_TYPE_VIDEO" && lv.contentId && !seen.has(lv.contentId)) {
+      seen.add(lv.contentId);
+      out.push({ id: lv.contentId, title: lv.metadata?.lockupMetadataViewModel?.title?.content || "" });
+    }
+    for (const k in o) walk(o[k]);
+  };
+  walk(data);
+  return out;
+}
+
 const STOPWORDS = new Set(["the", "a", "an", "and", "of", "to", "for", "s"]);
 
 // Fraction of the story's meaningful words that appear in the video title.
