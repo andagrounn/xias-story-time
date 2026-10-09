@@ -62,18 +62,43 @@ export function shuffle(arr) {
 // Watched stories persist across sessions in localStorage (just a set of ids).
 const WATCHED_KEY = "xia-watched";
 export function loadWatched() {
+  return loadIds(WATCHED_KEY);
+}
+export function saveWatched(ids) {
+  saveIds(WATCHED_KEY, ids);
+}
+
+// "Known" = story ids this device has seen before. Anything not in it is newly
+// added to the catalog, so it floats to the top on the next load.
+const KNOWN_KEY = "xia-known";
+export function loadKnown() {
+  return loadIds(KNOWN_KEY);
+}
+export function saveKnown(ids) {
+  saveIds(KNOWN_KEY, ids);
+}
+
+function loadIds(key) {
   try {
-    return new Set(JSON.parse(localStorage.getItem(WATCHED_KEY) || "[]"));
+    return new Set(JSON.parse(localStorage.getItem(key) || "[]"));
   } catch {
     return new Set();
   }
 }
-export function saveWatched(ids) {
+function saveIds(key, ids) {
   try {
-    localStorage.setItem(WATCHED_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(key, JSON.stringify([...ids]));
   } catch {
-    /* no storage (private mode) — ticks just won't persist */
+    /* no storage (private mode) — just won't persist */
   }
+}
+
+// Load order: newly-added stories first, then everything else — each group
+// shuffled, so the wall is fresh on every refresh but new content leads.
+export function arrangeStories(stories, known) {
+  const recent = stories.filter((s) => !known.has(s.id));
+  const rest = stories.filter((s) => known.has(s.id));
+  return [...shuffle(recent), ...shuffle(rest)];
 }
 
 export function initApp(root, stories, onOpen) {
@@ -84,6 +109,12 @@ export function initApp(root, stories, onOpen) {
   const ages = availableAges(stories);
   let active = "all";
   let activeAge = "all";
+
+  // Order for this load: new stories up top, the rest shuffled. Then remember
+  // every current id so they're no longer "new" next time.
+  const known = loadKnown();
+  stories.splice(0, stories.length, ...arrangeStories(stories, known));
+  saveKnown(stories.map((s) => s.id));
 
   const watched = loadWatched();
   stories.forEach((s) => (s.watched = watched.has(s.id)));
@@ -126,11 +157,10 @@ export function initApp(root, stories, onOpen) {
     const story = stories.find((s) => s.id === card.dataset.id);
     if (!story) return;
     onOpen(story);
-    // Mark watched (bright yellow tick) and reshuffle for a fresh wall.
+    // Mark watched (bright yellow tick); the wall reshuffles on next refresh.
     story.watched = true;
     watched.add(story.id);
     saveWatched(watched);
-    shuffle(stories);
     render();
   });
 

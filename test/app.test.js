@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { filterStories, filterByAge, storyCardHTML, availableChips, availableAges, shuffle } from "../js/app.js";
+import { filterStories, filterByAge, storyCardHTML, availableChips, availableAges, shuffle, arrangeStories } from "../js/app.js";
 
 const stories = [
   { id: "a", title: "A", cover: "a.jpg", ageRange: "4-6", badges: ["video"], primary: "video", media: { video: "yt" } },
@@ -47,6 +47,16 @@ test("storyCardHTML shows a watched tick only when watched", () => {
   const html = storyCardHTML({ id: "a", title: "A", cover: "c", badges: [], watched: true });
   assert.match(html, /class="card-tick"/);
   assert.match(html, /class="card watched"/);
+});
+
+test("arrangeStories puts newly-added (unknown) stories ahead of known ones", () => {
+  const catalog = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }];
+  const known = new Set(["a", "c"]); // b and d are new
+  const out = arrangeStories(catalog, known);
+  assert.deepEqual([...out].map((s) => s.id).sort(), ["a", "b", "c", "d"]); // same items
+  const lastNewIdx = Math.max(out.findIndex((s) => s.id === "b"), out.findIndex((s) => s.id === "d"));
+  const firstKnownIdx = Math.min(out.findIndex((s) => s.id === "a"), out.findIndex((s) => s.id === "c"));
+  assert.ok(lastNewIdx < firstKnownIdx, "all new stories come before any known story");
 });
 
 test("shuffle keeps the same elements (just reorders in place)", () => {
