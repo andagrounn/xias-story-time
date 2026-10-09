@@ -11,6 +11,8 @@ import {
   cleanVooksTitle,
   cleanFableTitle,
   isFableEnglish,
+  cleanBuddyTitle,
+  isBuddyNonStory,
   isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
@@ -43,6 +45,14 @@ const FABLE_QUERIES = [
   "The Fable Cottage fairy tale English",
   "The Fable Cottage English accent story for kids",
   "The Fable Cottage animated fairy tale read aloud",
+];
+
+// BuddySon Storytime — read-aloud picture books (singles only, skip compilations).
+const BUDDY_CHANNEL = "UCzZiparM1drXqoWp7bhIpZw";
+const BUDDY_QUERIES = [
+  "BuddySon Storytime read aloud kids book",
+  "BuddySon Storytime story for kids",
+  "BuddySon Storytime picture book read aloud",
 ];
 
 // Extra YouTube playlists to import as video storybooks (title cleaner per source).
@@ -275,6 +285,18 @@ const fableSources = fable.map((v) => ({
 }));
 console.log(`fable cottage: ${fableSources.length} English fairy tales`);
 
+// BuddySon Storytime read-aloud picture books (single stories only).
+const buddy = await harvestChannelVideos(BUDDY_CHANNEL, BUDDY_QUERIES, {
+  clean: cleanBuddyTitle,
+  keep: (t) => !isBuddyNonStory(t),
+  ageRange: "4-6",
+});
+const buddySources = buddy.map((v) => ({
+  card: { title: v.title, cover: ytThumb(v.id), source: "buddyson", ageRange: v.ageRange },
+  media: { video: v.id },
+}));
+console.log(`buddyson: ${buddySources.length} read-aloud books`);
+
 // Extra YouTube playlists (Vooks etc.) → video cards with their thumbnail cover.
 const playlistLists = await Promise.all(PLAYLISTS.map(harvestPlaylist));
 const playlistSources = playlistLists.flat().map(({ v, source }) => ({
@@ -284,7 +306,13 @@ const playlistSources = playlistLists.flat().map(({ v, source }) => ({
 
 // Read cards first so their category age + real cover win when a video matches
 // an existing read-along by title; video fills in the media.video slot.
-let stories = mergeSources([...readSources, ...videoSources, ...fableSources, ...playlistSources]);
+let stories = mergeSources([
+  ...readSources,
+  ...videoSources,
+  ...fableSources,
+  ...buddySources,
+  ...playlistSources,
+]);
 
 // Fill page images + the "Listen" narration track for read-alongs (one fetch each).
 for (const s of stories) {

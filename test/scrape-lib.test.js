@@ -18,6 +18,8 @@ import {
   cleanVooksTitle,
   cleanFableTitle,
   isFableEnglish,
+  cleanBuddyTitle,
+  isBuddyNonStory,
   isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
@@ -219,6 +221,18 @@ test("isFableEnglish keeps English narration only (dubs/trailers/subtitles out)"
   assert.equal(isFableEnglish("Raiponce - TRAILER"), false); // foreign trailer
   assert.equal(isFableEnglish("Snow White - UK English accent - TRAILER"), false); // any trailer
   assert.equal(isFableEnglish("Птичка и Кит ('The Bird and the Whale' in Russian)"), false);
+});
+
+test("cleanBuddyTitle keeps the book name before the dash/emoji", () => {
+  assert.equal(cleanBuddyTitle("The Boy Who Cried Wolf – 🐺 Read aloud of classic children's book"), "The Boy Who Cried Wolf");
+  assert.equal(cleanBuddyTitle("Just a Duck? — 🐥🐈 Adorable read aloud kids book"), "Just a Duck?");
+  assert.equal(cleanBuddyTitle("This Book is Perfect! – 🐸 Funny read aloud"), "This Book is Perfect!");
+});
+
+test("isBuddyNonStory flags multi-book compilations", () => {
+  assert.equal(isBuddyNonStory("4 Eric Carle Books | Compilation | Hungry Caterpillar"), true);
+  assert.equal(isBuddyNonStory("Good Things Come in 3s – Goldilocks | Three Little Pigs | Billy Goats"), true);
+  assert.equal(isBuddyNonStory("The Boy Who Cried Wolf – 🐺 Read aloud"), false);
 });
 
 test("isVooksNonStory flags promos and compilations (on cleaned titles)", () => {

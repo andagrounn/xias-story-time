@@ -250,6 +250,21 @@ export function isFableEnglish(raw) {
   return /english accent|\[audiobook\]/i.test(t);
 }
 
+// BuddySon Storytime titles: "Title – 🐺 read-aloud description". Keep the book
+// name (everything before the first en/em dash), minus emoji.
+export function cleanBuddyTitle(raw) {
+  let t = String(raw || "").split(/\s*[–—]\s*/)[0].split("|")[0];
+  t = t.replace(/[\u{1F000}-\u{1FAFF}☀-➿←-⇿️‍]/gu, " ");
+  return t.replace(/\s+/g, " ").trim().replace(/^[-–—(:,\s]+|[-–—(:,\s]+$/g, "").trim();
+}
+
+// BuddySon multi-book compilations (numbered "4 … Books", "| Compilation |", or
+// several "|"-separated titles) — skip when we only want single stories.
+export function isBuddyNonStory(raw) {
+  const t = String(raw || "");
+  return /\bcompilation\b/i.test(t) || (t.match(/\|/g) || []).length >= 2;
+}
+
 // A promo/compilation, not a single storybook (skip these in a playlist import).
 // Single stories are specific book titles; compilations are generic topic
 // collections ("X Stories for Kids", "Read Aloud Stories for…", "…Kids Books").
