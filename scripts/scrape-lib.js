@@ -232,6 +232,24 @@ export function cleanVooksTitle(raw) {
   return t.replace(/^[|\-–—:,\s]+|[|\-–—:,\s]+$/g, "").trim();
 }
 
+// The Fable Cottage titles: "Title - US English accent (TheFableCottage.com)"
+// or "Title (UK English accent) - TheFableCottage.com". Keep just the tale name.
+export function cleanFableTitle(raw) {
+  let t = String(raw || "").split(/\s*[-–—(]\s*(?:US|UK|AU)?\s*English\b/i)[0];
+  t = t.replace(/\[audiobook\]/gi, "");
+  t = t.replace(/[-–—(]?\s*the\s*fable\s*cottage[^)]*\)?/i, "");
+  return t.replace(/\s+/g, " ").trim().replace(/^[-–—(:,\s]+|[-–—(:,\s]+$/g, "").trim();
+}
+
+// The Fable Cottage publishes each tale in several languages. Its English
+// narrations all tag "English accent" (or are "[AUDIOBOOK]"s); everything else
+// (dubs, foreign trailers, subtitled versions) lacks that — so match positively.
+export function isFableEnglish(raw) {
+  const t = String(raw || "");
+  if (/\btrailer\b/i.test(t)) return false; // previews, not full stories
+  return /english accent|\[audiobook\]/i.test(t);
+}
+
 // A promo/compilation, not a single storybook (skip these in a playlist import).
 // Single stories are specific book titles; compilations are generic topic
 // collections ("X Stories for Kids", "Read Aloud Stories for…", "…Kids Books").

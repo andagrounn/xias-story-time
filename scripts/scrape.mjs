@@ -9,6 +9,8 @@ import {
   extractPlaylistVideos,
   cleanVideoTitle,
   cleanVooksTitle,
+  cleanFableTitle,
+  isFableEnglish,
   isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
@@ -32,6 +34,15 @@ const HARVEST_QUERIES = [
   "storyberries fairy tale read along",
   "storyberries poem for kids animated",
   "storyberries picture book english subtitles",
+];
+
+// The Fable Cottage — animated fairy tales (English accents only; it also
+// publishes French/Spanish/German/Italian versions we skip).
+const FABLE_CHANNEL = "UCh6vBhXZTd0p_r5XIvdmLsA";
+const FABLE_QUERIES = [
+  "The Fable Cottage fairy tale English",
+  "The Fable Cottage English accent story for kids",
+  "The Fable Cottage animated fairy tale read aloud",
 ];
 
 // Extra YouTube playlists to import as video storybooks (title cleaner per source).
@@ -86,15 +97,17 @@ async function ytSearch(body) {
   return r.json();
 }
 
-async function harvestChannelVideos(channelId, queries, maxPages = 25) {
+async function harvestChannelVideos(channelId, queries, opts = {}) {
+  const { clean = cleanVideoTitle, keep = () => true, ageRange, maxPages = 25 } = opts;
   const seen = new Set();
   const out = [];
   const take = (videos) => {
     for (const v of videos) {
       if (v.channelId !== channelId || !v.id || seen.has(v.id)) continue;
       seen.add(v.id);
-      const title = cleanVideoTitle(v.title);
-      if (title) out.push({ id: v.id, title, ageRange: parseAgeFromTitle(v.title) });
+      if (!keep(v.title)) continue;
+      const title = clean(v.title);
+      if (title) out.push({ id: v.id, title, ageRange: ageRange || parseAgeFromTitle(v.title) });
     }
   };
   for (const query of queries) {
@@ -250,6 +263,18 @@ const videoSources = harvest.map((v) => ({
   media: { video: v.id },
 }));
 
+// The Fable Cottage animated fairy tales (English only).
+const fable = await harvestChannelVideos(FABLE_CHANNEL, FABLE_QUERIES, {
+  clean: cleanFableTitle,
+  keep: isFableEnglish,
+  ageRange: "4-6",
+});
+const fableSources = fable.map((v) => ({
+  card: { title: v.title, cover: ytThumb(v.id), source: "fablecottage", ageRange: v.ageRange },
+  media: { video: v.id },
+}));
+console.log(`fable cottage: ${fableSources.length} English fairy tales`);
+
 // Extra YouTube playlists (Vooks etc.) → video cards with their thumbnail cover.
 const playlistLists = await Promise.all(PLAYLISTS.map(harvestPlaylist));
 const playlistSources = playlistLists.flat().map(({ v, source }) => ({
@@ -259,7 +284,7 @@ const playlistSources = playlistLists.flat().map(({ v, source }) => ({
 
 // Read cards first so their category age + real cover win when a video matches
 // an existing read-along by title; video fills in the media.video slot.
-let stories = mergeSources([...readSources, ...videoSources, ...playlistSources]);
+let stories = mergeSources([...readSources, ...videoSources, ...fableSources, ...playlistSources]);
 
 // Fill page images + the "Listen" narration track for read-alongs (one fetch each).
 for (const s of stories) {

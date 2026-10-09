@@ -16,6 +16,8 @@ import {
   extractPlaylistVideos,
   cleanVideoTitle,
   cleanVooksTitle,
+  cleanFableTitle,
+  isFableEnglish,
   isVooksNonStory,
   parseAgeFromTitle,
   ytThumb,
@@ -197,6 +199,26 @@ test("cleanVooksTitle handles both Vooks title shapes", () => {
   assert.equal(cleanVooksTitle("Animated Read Aloud Kids Book: OPPOSITES! | Vooks"), "OPPOSITES!");
   assert.equal(cleanVooksTitle("Nature Story for Kids: The Boy Who Grew | Vooks"), "The Boy Who Grew");
   assert.equal(cleanVooksTitle("The HICCUPotamus! | Read Aloud Kids Book"), "The HICCUPotamus!");
+});
+
+test("cleanFableTitle strips the accent/branding suffix", () => {
+  assert.equal(cleanFableTitle("The Bear and the Bee - US English accent (TheFableCottage.com)"), "The Bear and the Bee");
+  assert.equal(cleanFableTitle("Snow White (UK English accent) - TheFableCottage.com"), "Snow White");
+  assert.equal(cleanFableTitle("The Fox and the Crow (UK English — TheFableCottage.com)"), "The Fox and the Crow");
+});
+
+test("cleanFableTitle drops the [AUDIOBOOK] tag so it dedupes", () => {
+  assert.equal(cleanFableTitle("The Happy Prince [AUDIOBOOK]"), "The Happy Prince");
+  assert.equal(cleanFableTitle("[AUDIOBOOK] The Happy Prince"), "The Happy Prince");
+});
+
+test("isFableEnglish keeps English narration only (dubs/trailers/subtitles out)", () => {
+  assert.equal(isFableEnglish("Jack and the Beanstalk - UK English accent"), true);
+  assert.equal(isFableEnglish("The Happy Prince [AUDIOBOOK]"), true);
+  assert.equal(isFableEnglish("Pollito Tito - Chicken Little in Spanish with English subtitles"), false);
+  assert.equal(isFableEnglish("Raiponce - TRAILER"), false); // foreign trailer
+  assert.equal(isFableEnglish("Snow White - UK English accent - TRAILER"), false); // any trailer
+  assert.equal(isFableEnglish("Птичка и Кит ('The Bird and the Whale' in Russian)"), false);
 });
 
 test("isVooksNonStory flags promos and compilations (on cleaned titles)", () => {
