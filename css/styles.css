@@ -57,6 +57,7 @@ body {
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -71,6 +72,26 @@ body {
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
   transition: transform 0.14s, box-shadow 0.14s;
 }
+/* Bright yellow "watched" tick */
+.card-tick {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  background: #ffe000;
+  color: #1c0f3a;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  z-index: 2;
+}
+.card.watched .card-cover { opacity: 0.8; }
 .card:hover,
 .card:focus-visible {
   transform: translateY(-8px) scale(1.02);

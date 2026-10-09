@@ -32,10 +32,14 @@ export function availableAges(stories) {
 
 export function storyCardHTML(story) {
   const badges = story.badges.map((b) => BADGE_ICON[b]).join(" ");
+  const tick = story.watched
+    ? `<span class="card-tick" aria-label="Watched">✓</span>`
+    : "";
   return `
-    <button class="card" data-id="${story.id}" aria-label="Play ${escapeHtml(story.title)}">
+    <button class="card${story.watched ? " watched" : ""}" data-id="${story.id}" aria-label="Play ${escapeHtml(story.title)}">
       <img class="card-cover" src="${story.cover}" alt="" loading="lazy"
            onerror="this.classList.add('missing')" />
+      ${tick}
       <span class="card-title">${escapeHtml(story.title)}</span>
       <span class="card-badges">${badges}</span>
     </button>`;
@@ -46,6 +50,32 @@ function escapeHtml(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+// Fisher-Yates in-place shuffle (returns the array for convenience).
+export function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Watched stories persist across sessions in localStorage (just a set of ids).
+const WATCHED_KEY = "xia-watched";
+export function loadWatched() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(WATCHED_KEY) || "[]"));
+  } catch {
+    return new Set();
+  }
+}
+export function saveWatched(ids) {
+  try {
+    localStorage.setItem(WATCHED_KEY, JSON.stringify([...ids]));
+  } catch {
+    /* no storage (private mode) — ticks just won't persist */
+  }
+}
+
 export function initApp(root, stories, onOpen) {
   const grid = root.querySelector("#grid");
   const chipBar = root.querySelector("#chips");
@@ -54,6 +84,9 @@ export function initApp(root, stories, onOpen) {
   const ages = availableAges(stories);
   let active = "all";
   let activeAge = "all";
+
+  const watched = loadWatched();
+  stories.forEach((s) => (s.watched = watched.has(s.id)));
 
   const render = () => {
     const shown = filterByAge(filterStories(stories, active), activeAge);
@@ -90,7 +123,15 @@ export function initApp(root, stories, onOpen) {
   grid.addEventListener("click", (e) => {
     const card = e.target.closest(".card");
     if (!card) return;
-    onOpen(stories.find((s) => s.id === card.dataset.id));
+    const story = stories.find((s) => s.id === card.dataset.id);
+    if (!story) return;
+    onOpen(story);
+    // Mark watched (bright yellow tick) and reshuffle for a fresh wall.
+    story.watched = true;
+    watched.add(story.id);
+    saveWatched(watched);
+    shuffle(stories);
+    render();
   });
 
   render();

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { filterStories, filterByAge, storyCardHTML, availableChips, availableAges } from "../js/app.js";
+import { filterStories, filterByAge, storyCardHTML, availableChips, availableAges, shuffle } from "../js/app.js";
 
 const stories = [
   { id: "a", title: "A", cover: "a.jpg", ageRange: "4-6", badges: ["video"], primary: "video", media: { video: "yt" } },
@@ -40,4 +40,18 @@ test("storyCardHTML includes title, cover, badges, id, and escapes html", () => 
   assert.match(html, /data-id="a"/);
   assert.match(html, /🎬/);
   assert.match(storyCardHTML(stories[1]), /B &amp; &lt;b&gt;/);
+});
+
+test("storyCardHTML shows a watched tick only when watched", () => {
+  assert.doesNotMatch(storyCardHTML({ id: "a", title: "A", cover: "c", badges: [] }), /card-tick/);
+  const html = storyCardHTML({ id: "a", title: "A", cover: "c", badges: [], watched: true });
+  assert.match(html, /class="card-tick"/);
+  assert.match(html, /class="card watched"/);
+});
+
+test("shuffle keeps the same elements (just reorders in place)", () => {
+  const arr = [1, 2, 3, 4, 5, 6, 7, 8];
+  const out = shuffle(arr);
+  assert.equal(out, arr); // same array (in place)
+  assert.deepEqual([...arr].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
